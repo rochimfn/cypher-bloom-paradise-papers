@@ -1,0 +1,39 @@
+// Buat relationship baru
+MATCH (o:Officer)-[:OFFICER_OF]-(e:Entity)-[:OFFICER_OF]-(o2:Officer) WHERE toLower(o.countries) CONTAINS 'indonesia' AND toLower(o2.countries) CONTAINS 'indonesia'
+AND o.node_id <> o2.node_id
+WITH DISTINCT o,o2
+CALL apoc.create.relationship(o,'RELATED_TO',{},o2)
+YIELD rel
+RETURN rel;
+
+
+// Menjalankan algoritma Strongly Connected Components 
+CALL gds.alpha.scc.write({
+  nodeQuery: 'MATCH (o:Officer) where toLower(o.countries) contains "indonesia" RETURN id(o) AS id',
+  relationshipQuery: 'MATCH (o1:Officer)-[:RELATED_TO]->(o2:Officer) RETURN id(o1) AS source, id(o2) AS target',
+  writeProperty: 'scc_value'
+}) YIELD setCount, maxSetSize, minSetSize;
+
+
+// Menjalankan algoritma Harmonic Centrality
+CALL gds.alpha.closeness.harmonic.write({
+  nodeQuery: 'MATCH (o:Officer) where toLower(o.countries) CONTAINS "indonesia" RETURN id(o) AS id',
+  relationshipQuery: 'MATCH (o1:Officer)-[:RELATED_TO]->(o2:Officer) RETURN id(o1) AS source, id(o2) AS target',
+  writeProperty: 'centrality'
+}) YIELD nodes, writeProperty;
+
+
+// Melihat hasil algoritma Strongly Connected Components 
+MATCH (o:Officer) 
+WHERE toLower(o.countries) CONTAINS 'indonesia' 
+RETURN o.name, o.scc_value
+ORDER BY o.scc_value DESC
+LIMIT 10;
+
+
+// Melihat hasil algoritma Harmonic Centrality
+MATCH (o:Officer) 
+WHERE toLower(o.countries) CONTAINS 'indonesia' 
+RETURN o.name, o.centrality
+ORDER BY o.centrality DESC
+LIMIT 10;
